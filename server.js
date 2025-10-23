@@ -7,22 +7,31 @@ require('dotenv').config();
 const app = express();
 
 // Connect to MongoDB
-connectDB();
+connectDB()
+    .then(() => console.log('Database connection established'))
+    .catch(err => {
+        console.error('Failed to establish DB connection at startup:', err.message);
+        // Let the process die so Render can attempt a restart or you can investigate
+        process.exit(1);
+    });
 
-// CORS configuration
-<<<<<<< HEAD:backend/server.js
-=======
-const allowedOrigins = [
-    process.env.FRONTEND_URL,          // Production URL
-    'https://maksensi.vercel.app',     // Vercel domain
-    'http://127.0.0.1:5500',          // Local development
+// CORS configuration: allow the configured frontend or fallback to localhost during dev
+const allowedOrigins = new Set([
+    process.env.FRONTEND_URL,
+    'https://makxsensi.vercel.app',
+    'http://127.0.0.1:5500',
     'http://localhost:5500',
     'http://localhost:3000'
-];
+].filter(Boolean));
 
->>>>>>> 0b62b9d (chore: update CORS and env config for Vercel deployment):server.js
 const corsOptions = {
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    origin: (origin, callback) => {
+        // allow requests with no origin (mobile apps, curl)
+        if (!origin) return callback(null, true);
+        if (allowedOrigins.has(origin)) return callback(null, true);
+        console.warn('Blocked CORS request from', origin);
+        return callback(new Error('Not allowed by CORS'), false);
+    },
     credentials: true,
     optionsSuccessStatus: 200
 };
