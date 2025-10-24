@@ -1,24 +1,15 @@
-let brevo;
+const SibApiV3Sdk = require('@getbrevo/brevo');
 let _brevoAvailable = true;
+let apiInstance;
+
 try {
-    brevo = require('@getbrevo/brevo');
+    const defaultClient = SibApiV3Sdk.ApiClient.instance;
+    const apiKey = defaultClient.authentications['api-key'];
+    apiKey.apiKey = process.env.BREVO_API_KEY;
+    apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
 } catch (err) {
     _brevoAvailable = false;
-    console.error('Missing dependency @getbrevo/brevo. Email functionality will be disabled until this package is installed.');
-    console.error('Require error:', err && err.message ? err.message : err);
-}
-
-// Initialize Brevo with API key (only if module available)
-let apiInstance;
-if (_brevoAvailable) {
-    if (!process.env.BREVO_API_KEY) {
-        console.error('Brevo API key not configured. Email service will not work.');
-    } else {
-        const defaultClient = brevo.ApiClient.instance;
-        const apiKey = defaultClient.authentications['api-key'];
-        apiKey.apiKey = process.env.BREVO_API_KEY;
-        apiInstance = new brevo.TransactionalEmailsApi();
-    }
+    console.error('Failed to initialize Brevo:', err.message);
 }
 
 // Email template for successful purchase
@@ -81,8 +72,8 @@ const sendWithRetry = async (mailData, retries = 3, initialDelay = 1000) => {
             // Add request trace ID for debugging
             const traceId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
             
-            // Convert SendGrid format to Brevo format
-            const sendSmtpEmail = new brevo.SendSmtpEmail();
+            // Convert to Brevo format
+            const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail();
             sendSmtpEmail.subject = mailData.subject;
             sendSmtpEmail.htmlContent = mailData.html;
             sendSmtpEmail.sender = { 
