@@ -1,19 +1,23 @@
-let sgMail;
-let _sendgridAvailable = true;
+let brevo;
+let _brevoAvailable = true;
 try {
-    sgMail = require('@sendgrid/mail');
+    brevo = require('@getbrevo/brevo');
 } catch (err) {
-    _sendgridAvailable = false;
-    console.error('Missing dependency @sendgrid/mail. Email functionality will be disabled until this package is installed.');
+    _brevoAvailable = false;
+    console.error('Missing dependency @getbrevo/brevo. Email functionality will be disabled until this package is installed.');
     console.error('Require error:', err && err.message ? err.message : err);
 }
 
-// Initialize SendGrid with API key (only if module available)
-if (_sendgridAvailable) {
-    if (!process.env.SENDGRID_API_KEY) {
-        console.error('SendGrid API key not configured. Email service will not work.');
+// Initialize Brevo with API key (only if module available)
+let apiInstance;
+if (_brevoAvailable) {
+    if (!process.env.BREVO_API_KEY) {
+        console.error('Brevo API key not configured. Email service will not work.');
     } else {
-        sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+        const defaultClient = brevo.ApiClient.instance;
+        const apiKey = defaultClient.authentications['api-key'];
+        apiKey.apiKey = process.env.BREVO_API_KEY;
+        apiInstance = new brevo.TransactionalEmailsApi();
     }
 }
 
@@ -62,28 +66,44 @@ const getPurchaseEmailTemplate = (order) => {
     `;
 };
 
-// SendGrid send with retry mechanism
+// Brevo send with retry mechanism
 const sendWithRetry = async (mailData, retries = 3, initialDelay = 1000) => {
-    if (!_sendgridAvailable) {
-        throw new Error('SendGrid module @sendgrid/mail is not installed in this environment');
+    if (!_brevoAvailable) {
+        throw new Error('Brevo module @getbrevo/brevo is not installed in this environment');
+    }
+
+    if (!apiInstance) {
+        throw new Error('Brevo API is not initialized. Check if BREVO_API_KEY is set.');
     }
 
     for (let attempt = 1; attempt <= retries; attempt++) {
         try {
             // Add request trace ID for debugging
             const traceId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-            mailData.headers = {
+            
+            // Convert SendGrid format to Brevo format
+            const sendSmtpEmail = new brevo.SendSmtpEmail();
+            sendSmtpEmail.subject = mailData.subject;
+            sendSmtpEmail.htmlContent = mailData.html;
+            sendSmtpEmail.sender = { 
+                email: mailData.from,
+                name: "MakXsensi"
+            };
+            sendSmtpEmail.to = [{
+                email: mailData.to,
+                name: mailData.name || undefined
+            }];
+            sendSmtpEmail.headers = {
                 'X-Trace-ID': traceId,
                 ...mailData.headers
             };
 
             console.log(`[${traceId}] Attempting to send email (attempt ${attempt}/${retries})...`);
 
-            const response = await sgMail.send(mailData);
+            const response = await apiInstance.sendTransacEmail(sendSmtpEmail);
             
             console.log(`[${traceId}] Email sent successfully:`, {
-                messageId: response[0]?.headers['x-message-id'],
-                statusCode: response[0]?.statusCode,
+                messageId: response.messageId,
                 recipient: mailData.to,
                 attempt
             });
