@@ -1,10 +1,20 @@
-const sgMail = require('@sendgrid/mail');
+let sgMail;
+let _sendgridAvailable = true;
+try {
+    sgMail = require('@sendgrid/mail');
+} catch (err) {
+    _sendgridAvailable = false;
+    console.error('Missing dependency @sendgrid/mail. Email functionality will be disabled until this package is installed.');
+    console.error('Require error:', err && err.message ? err.message : err);
+}
 
-// Initialize SendGrid with API key
-if (!process.env.SENDGRID_API_KEY) {
-    console.error('SendGrid API key not configured. Email service will not work.');
-} else {
-    sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+// Initialize SendGrid with API key (only if module available)
+if (_sendgridAvailable) {
+    if (!process.env.SENDGRID_API_KEY) {
+        console.error('SendGrid API key not configured. Email service will not work.');
+    } else {
+        sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+    }
 }
 
 // Email template for successful purchase
@@ -54,6 +64,10 @@ const getPurchaseEmailTemplate = (order) => {
 
 // SendGrid send with retry mechanism
 const sendWithRetry = async (mailData, retries = 3, initialDelay = 1000) => {
+    if (!_sendgridAvailable) {
+        throw new Error('SendGrid module @sendgrid/mail is not installed in this environment');
+    }
+
     for (let attempt = 1; attempt <= retries; attempt++) {
         try {
             // Add request trace ID for debugging
@@ -109,6 +123,10 @@ async function sendPurchaseEmail(data) {
         throw new Error('Email address is required');
     }
 
+    if (!_sendgridAvailable) {
+        throw new Error('SendGrid module @sendgrid/mail is not installed in this environment');
+    }
+
     if (!process.env.SENDGRID_API_KEY) {
         throw new Error('SendGrid API key not configured');
     }
@@ -141,6 +159,10 @@ async function sendPurchaseEmail(data) {
 
 // Health check function
 const checkEmailService = async () => {
+    if (!_sendgridAvailable) {
+        return { status: 'error', message: 'SendGrid module @sendgrid/mail not installed' };
+    }
+
     if (!process.env.SENDGRID_API_KEY) {
         return { status: 'error', message: 'SendGrid API key not configured' };
     }
