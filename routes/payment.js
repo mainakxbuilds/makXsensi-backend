@@ -3,6 +3,7 @@ const router = express.Router();
 const Razorpay = require('razorpay');
 const crypto = require('crypto');
 const Order = require('../models/Order');
+const { sendPurchaseEmail } = require('../utils/emailService');
 
 // Initialize Razorpay
 const razorpay = new Razorpay({
@@ -82,6 +83,23 @@ router.post('/verify', async (req, res) => {
             await newOrder.save();
 
             console.log('Payment successful for:', packName, 'Amount:', amount);
+
+            // Send confirmation email asynchronously. Do not block response on email delivery.
+            try {
+                sendPurchaseEmail({
+                    email: customerEmail,
+                    name: customerName,
+                    packName,
+                    amount,
+                    orderId: razorpay_order_id
+                }).then(() => {
+                    console.log('Confirmation email queued/sent for', customerEmail);
+                }).catch((err) => {
+                    console.error('Failed to send confirmation email:', err && err.message ? err.message : err);
+                });
+            } catch (err) {
+                console.error('Error initiating confirmation email:', err && err.message ? err.message : err);
+            }
 
             res.json({
                 success: true,
