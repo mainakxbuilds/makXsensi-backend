@@ -43,9 +43,11 @@ app.use(bodyParser.urlencoded({ extended: true }));
 
 // Import routes
 const paymentRoutes = require('./routes/payment');
+const debugRoutes = require('./routes/debug');
 
 // Use routes
 app.use('/api/payment', paymentRoutes);
+app.use('/api/debug', debugRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
